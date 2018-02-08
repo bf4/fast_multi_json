@@ -1,0 +1,17 @@
+#!/usr/bin/env ruby
+
+require 'bundler/inline'
+
+gemfile do
+  source 'https://rubygems.org'
+  gem 'yajl-ruby', require: false
+  gem 'json', require: false
+  gem 'fast_multi_json', path: '.'
+end
+
+require 'json'
+object = ARGV.join(" ")
+object = instance_eval object
+
+puts FastMultiJson.to_json_method.split("\n")[1].strip
+puts FastMultiJson.to_json(object)
