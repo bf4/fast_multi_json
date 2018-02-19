@@ -148,6 +148,8 @@ def capture_error(tag, orig, load_key, dump_key, &blk)
   end
 end
 
+$failed = {} # key is same as String used in tests later
+
 # Verify that all packages dump and load correctly and return the same Object as the original.
 capture_error('Oj:compat', $obj, 'load', 'dump') { |o| Oj.compat_load(Oj.dump(o, :mode => :compat)) }
 capture_error('MultiJson', $obj, 'load', 'dump') { |o| MultiJson.load(MultiJson.dump(o)) }
@@ -204,6 +206,7 @@ $obj = {
   'i' => [[[[[[[nil]]]]]]]  # deep array, again, not that deep
 }
 
+
 Oj.default_options = { :indent => $indent, :mode => :compat, :use_to_json => true, :create_additions => true, :create_id => '^o' }
 
 if 0 < $size
@@ -216,10 +219,8 @@ if 0 < $size
   end
 end
 
-$failed = {} # key is same as String used in tests later
-
 puts '-' * 80
-puts "Compat dump Performance"
+puts "  ## Compat dump Performance"
 perf = Perf.new()
 unless $failed.has_key?('JSON::Ext')
   perf.add('JSON::Ext', 'dump') { JSON.dump($obj) }
@@ -243,7 +244,7 @@ puts
 $json = JSON.dump($obj)
 
 puts '-' * 80
-puts "Compat load Performance"
+puts "  ## Compat load Performance"
 perf = Perf.new()
 unless $failed.has_key?('JSON::Ext')
   perf.add('JSON::Ext', 'load') { JSON.load($json) }

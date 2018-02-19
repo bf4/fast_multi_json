@@ -45,25 +45,29 @@ module FastMultiJson
     encode_method = String.new(%(def _fast_to_json(object)\n ))
     encode_method << Result.new {
       require 'oj'
-      %(::Oj.dump(object, mode: :compat, time_format: :ruby, use_to_json: true))
+      %(::Oj.dump(object, mode: :compat, time_format: :ruby, use_to_json: true, indent: 0))
     }.rescue {
       require 'yajl'
       %(::Yajl::Encoder.encode(object))
     }.rescue {
       require 'jrjackson' unless defined?(::JrJackson)
-      %(::JrJackson::Json.dump(object))
+      if ::JrJackson::Json.method(:dump).arity == 1
+        %(::JrJackson::Json.dump(object))
+      else
+        %(::JrJackson::Json.dump(object, ::FastMultiJson::EMPTY_OPTIONS.dup))
+      end
     }.rescue {
       require 'json'
-      %(::JSON.fast_generate(object, create_additions: false, quirks_mode: true))
+      %(::JSON.fast_generate(object, create_additions: false, quirks_mode: false))
     }.rescue {
       require 'gson'
-      %(::Gson::Encoder.new({}).encode(object))
+      %(::Gson::Encoder.new(::FastMultiJson::EMPTY_OPTIONS.dup).encode(object))
     }.rescue {
       require 'active_support/json/encoding'
       %(::ActiveSupport::JSON.encode(object))
     }.rescue {
       warn "No JSON encoder found. Falling back to `object.to_json`"
-      %(object.to_json)
+      %(object.to_json(::JSON::FAST_STATE_PROTOTYPE.to_h))
     }.value!
     encode_method << "\nend"
   end
@@ -85,10 +89,24 @@ module FastMultiJson
     decode_method = String.new(%(def _fast_from_json(string)\n ))
     decode_method << Result.new {
       require 'oj'
-      %(::Oj.load(string))
+      %(::Oj.load(string, mode: :strict, symbol_keys: false))
+    }.rescue {
+      require 'yajl'
+      %(::Yajl::Parser.new(symbolize_keys: false).parse(string))
+    }.rescue {
+      require 'jrjackson' unless defined?(::JrJackson)
+      %(::JrJackson::Json.load(string))
     }.rescue {
       require 'json'
-      %(JSON.parse(string))
+      %(::JSON.parse(string, quirks_mode: false, symbolize_names: false))
+    }.rescue {
+      require 'gson'
+      %(::Gson::Decoder.new(::FastMultiJson::EMPTY_OPTIONS.dup).decode(string))
+    }.rescue {
+      require 'active_support/json/decoding'
+      %(::ActiveSupport::JSON.decode(string))
+    }.rescue {
+      fail "No JSON decoder found."
     }.value!
     decode_method << "\nend"
   end
@@ -126,4 +144,7 @@ module FastMultiJson
     end
   end
   private_constant :Result
+
+  EMPTY_OPTIONS = {}.freeze
+  private_constant :EMPTY_OPTIONS
 end
