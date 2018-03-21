@@ -10,7 +10,6 @@ gemfile do
   gem 'fast_multi_json', path: '.'
 end
 
-
 # Adapted from https://raw.githubusercontent.com/ohler55/oj/39c975a048d89f42062bb542fae98109520b10eb/test/perf.rb
 class Perf
 
@@ -149,10 +148,12 @@ def capture_error(tag, orig, load_key, dump_key, &blk)
   end
 end
 
+$failed = {} # key is same as String used in tests later
+
 # Verify that all packages dump and load correctly and return the same Object as the original.
 capture_error('Oj:compat', $obj, 'load', 'dump') { |o| Oj.compat_load(Oj.dump(o, :mode => :compat)) }
 capture_error('MultiJson', $obj, 'load', 'dump') { |o| MultiJson.load(MultiJson.dump(o)) }
-capture_error('FastMultiJson', $obj, 'oj_load', 'dump') { |o| Oj.compat_load(FastMultiJson.to_json(o)) }
+capture_error('FastMultiJson', $obj, 'oj_load', 'dump') { |o| FastMultiJson.from_json(FastMultiJson.to_json(o)) }
 capture_error('JSON::Ext', $obj, 'generate', 'parse') { |o|
   require 'json'
   require 'json/ext'
@@ -205,6 +206,7 @@ $obj = {
   'i' => [[[[[[[nil]]]]]]]  # deep array, again, not that deep
 }
 
+
 Oj.default_options = { :indent => $indent, :mode => :compat, :use_to_json => true, :create_additions => true, :create_id => '^o' }
 
 if 0 < $size
@@ -217,10 +219,8 @@ if 0 < $size
   end
 end
 
-$failed = {} # key is same as String used in tests later
-
 puts '-' * 80
-puts "Compat dump Performance"
+puts "  ## Compat dump Performance"
 perf = Perf.new()
 unless $failed.has_key?('JSON::Ext')
   perf.add('JSON::Ext', 'dump') { JSON.dump($obj) }
@@ -234,6 +234,30 @@ unless $failed.has_key?('FastMultiJson')
 end
 unless $failed.has_key?('Oj:compat')
   perf.add('Oj:compat', 'dump_compat') { Oj.dump($oj, mode: :compat) }
+end
+perf.run($iter)
+
+puts
+puts '-' * 80
+puts
+
+$json = JSON.dump($obj)
+
+puts '-' * 80
+puts "  ## Compat load Performance"
+perf = Perf.new()
+unless $failed.has_key?('JSON::Ext')
+  perf.add('JSON::Ext', 'load') { JSON.load($json) }
+  perf.before('JSON::Ext') { JSON.parser = JSON::Ext::Parser }
+end
+unless $failed.has_key?('MultiJson')
+  perf.add('MultiJson', 'load') { MultiJson.load($json) }
+end
+unless $failed.has_key?('FastMultiJson')
+  perf.add('FastMultiJson', 'from_json') { FastMultiJson.from_json($json) }
+end
+unless $failed.has_key?('Oj:compat')
+  perf.add('Oj:compat', 'load_compat') { Oj.load($json, mode: :compat) }
 end
 perf.run($iter)
 
